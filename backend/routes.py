@@ -51,3 +51,74 @@ def parse_json(data):
 ######################################################################
 # INSERT CODE HERE
 ######################################################################
+
+@app.route('/health')
+def health():
+    return {"status": "OK"}, 200
+
+@app.route('/count')
+def count():
+    count = db.songs.count_documents({})
+    
+    return {"count": count}, 200
+
+@app.route("/song", methods=["GET"])
+def songs():
+    songs_list = list(db.songs.find({}))
+    # print(songs_list[0])
+
+    return {"songs": parse_json(songs_list)}, 200
+
+@app.route("/song/<int:id>", methods=["GET"])
+def get_song_by_id(id):
+    found_song = db.songs.find_one({"id": id})
+    if found_song:
+        return parse_json(found_song), 200
+    
+    return {"songs": f"song with id {id} not found"}, 404
+
+@app.route("/song", methods=["POST"])
+def create_song():
+    new_song = request.json
+
+    found = db.songs.find_one({"id": new_song["id"]})
+
+    if found:
+        return {"Message": f"song with id {new_song['id']} already present"}, 302
+
+    """
+    InsertOneResult:
+    InsertOneResult is the type returned by the insert_one method. It is a class provided by pymongo that contains information about the result of the insertion operation.
+    The InsertOneResult object contains an inserted_id attribute, which holds the unique identifier (_id) of the inserted document.
+    
+    insert_id: InsertOneResult:
+    This is a type annotation in Python, indicating that the insert_id variable will hold an object of type InsertOneResult.
+    insert_id is assigned the result of the insert_one(new_song) operation.
+    """
+    insert_id: InsertOneResult = db.songs.insert_one(new_song)
+    return {"inserted id": parse_json(insert_id.inserted_id)}, 201
+
+@app.route("/song/<int:id>", methods=["PUT"])
+def update_song(id):
+    new_song = request.json
+
+    found = db.songs.find_one({"id": id})
+
+    if not found:
+        return {"Message": f"song with id {new_song['id']} not found"}, 404
+
+    updated_data = {"$set": new_song}
+    result = db.songs.update_one({"id": id}, updated_data)
+    if result.modified_count == 0:
+        return {"message": "song found, but nothing updated"}, 200
+    else:
+        return parse_json(db.songs.find_one({"id": id})), 201
+
+@app.route("/song/<int:id>", methods=["DELETE"])
+def delete_song(id):
+    result = db.songs.delete_one({"id": id})
+    if result.deleted_count == 0:
+        return {"message": f"song with id {id} not found"}, 404
+    else:
+        return "", 204
+
